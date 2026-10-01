@@ -202,18 +202,8 @@
           <input type="text" id="accountId" placeholder="e.g. ACT-90812">
         </div>
         <div class="field-group">
-          <label for="mapperUrl">Mapper Google Sheets URL</label>
-          <input type="text" id="mapperUrl" placeholder="https://docs.google.com/spreadsheets/d/MAPPER_ID/edit">
-        </div>
-      </div>
-      <div class="grid-row">
-        <div class="field-group">
           <label for="originUrl">Origin Google Sheets URL</label>
           <input type="text" id="originUrl" placeholder="https://docs.google.com/spreadsheets/d/ORIGIN_ID/edit">
-        </div>
-        <div class="field-group">
-          <label for="destUrl">Destination Google Sheets URL</label>
-          <input type="text" id="destUrl" placeholder="https://docs.google.com/spreadsheets/d/DESTINATION_ID/edit">
         </div>
       </div>
       <button id="btnLoad" onclick="fetchMatrix()">Load Data Matrix</button>
@@ -259,12 +249,11 @@
     function fetchMatrix() {
       const payload = {
         accountId: document.getElementById('accountId').value.trim(),
-        mapperUrl: document.getElementById('mapperUrl').value.trim(),
         originUrl: document.getElementById('originUrl').value.trim()
       };
 
-      if (!payload.accountId || !payload.mapperUrl || !payload.originUrl) {
-        showStatus("Please complete Account ID, Mapper URL, and Origin URL fields.", "#F8D7DA", "#721C24");
+      if (!payload.accountId || !payload.originUrl) {
+        showStatus("Please complete Account ID and Origin URL fields.", "#F8D7DA", "#721C24");
         return;
       }
 
@@ -337,14 +326,6 @@
 
     // --- FUNCTION: EXECUTE IMPORT TO DESTINATION SHEET ---
     function executeImport() {
-      const destUrl = document.getElementById('destUrl').value.trim();
-      const mapperUrl = document.getElementById('mapperUrl').value.trim();
-
-      if (!destUrl) {
-        showStatus("Please specify the Destination Google Sheets URL.", "#F8D7DA", "#721C24");
-        return;
-      }
-
       const btn = document.getElementById('btnImport');
       btn.disabled = true;
       btn.innerText = "Importing...";
@@ -361,8 +342,6 @@
           showStatus("Import Error: " + err.message, "#F8D7DA", "#721C24");
         })
         .importMatrixToDestination({
-          destUrl: destUrl,
-          mapperUrl: mapperUrl,
           matrixData: currentMatrixData,
           runNumber: activeRunNumber
         });
