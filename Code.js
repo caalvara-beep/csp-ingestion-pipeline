@@ -150,16 +150,17 @@ function loadDataMatrix(payload) {
           }
         }
 
-        rowCells.push({ value: val, destCol: rule.destColIndex });
+        rowCells.push({ value: normalizeMatrixValue(val), destCol: rule.destColIndex });
       });
 
       tabRows.push(rowCells);
     }
 
-    matrixResult[tabName] = { headers: headers, rows: tabRows };
+    matrixResult[tabName] = { headers: headers.map(h => normalizeMatrixValue(h)), rows: tabRows };
   }
 
-  return matrixResult;
+  console.log("loadDataMatrix: returning matrix payload with tabs", Object.keys(matrixResult));
+  return normalizeMatrixResult(matrixResult);
 }
 
 // =================================================================
@@ -273,4 +274,27 @@ function parseColumnIndex(col) {
     base = base * 26 + col.charCodeAt(i) - 64;
   }
   return base > 0 ? base : 1;
+}
+
+function normalizeMatrixValue(value) {
+  if (value === undefined || value === null) return "";
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  }
+  return String(value);
+}
+
+function normalizeMatrixResult(matrixResult) {
+  const safeResult = {};
+  Object.keys(matrixResult).forEach(tabName => {
+    const tab = matrixResult[tabName] || { headers: [], rows: [] };
+    safeResult[tabName] = {
+      headers: (tab.headers || []).map(header => normalizeMatrixValue(header)),
+      rows: (tab.rows || []).map(row => (row || []).map(cell => ({
+        value: normalizeMatrixValue(cell && cell.value),
+        destCol: cell && cell.destCol !== undefined ? cell.destCol : 0
+      })))
+    };
+  });
+  return safeResult;
 }
