@@ -46,9 +46,15 @@ function loadDataMatrix(payload) {
   const originSheetsCache = {};
   originSheets.forEach(sheet => {
     const sheetName = sheet.getName().trim();
-    const sheetRows = sheet.getDataRange().getValues();
-    originSheetsCache[sheetName.toLowerCase()] = sheetRows;
-    console.log("loadDataMatrix: cached sheet '" + sheetName + "' with " + sheetRows.length + " rows.");
+    const rawSheetRows = sheet.getDataRange().getValues();
+    const filteredRows = rawSheetRows.filter((row, index) => {
+      if (index === 0) return true;
+      const cellBValue = row && row[1] !== undefined ? row[1] : "";
+      return String(cellBValue).trim() !== "";
+    });
+
+    originSheetsCache[sheetName.toLowerCase()] = filteredRows;
+    console.log("loadDataMatrix: cached sheet '" + sheetName + "' with " + filteredRows.length + " rows after removing blank column B entries.");
   });
 
   const mapperData = mapperSheet.getDataRange().getValues();
