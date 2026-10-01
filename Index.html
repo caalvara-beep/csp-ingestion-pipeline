@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <!-- ================================================================= -->
+  <!-- SECTION: STYLES & THEME DEFINITIONS                               -->
+  <!-- ================================================================= -->
+  <style>
+    :root {
+      --akamai-blue: #004B87;
+      --akamai-orange: #FF7900;
+      --akamai-black: #09090A;
+      --bg-light: #F4F6F8;
+    }
+    
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background-color: var(--bg-light); 
+      color: var(--akamai-black); 
+      margin: 0; 
+      padding: 0; 
+    }
+    
+    /* BRAND BAR STYLING */
+    .brand-bar { 
+      background-color: var(--akamai-black); 
+      color: #ffffff; 
+      padding: 15px 30px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      border-bottom: 4px solid var(--akamai-orange); 
+    }
+    .brand-logo { 
+      font-size: 18px; 
+      font-weight: bold; 
+    }
+    
+    /* LAYOUT CONTAINERS */
+    .main-workspace { 
+      max-width: 1400px; 
+      margin: 20px auto; 
+      padding: 0 20px; 
+    }
+    .content-card { 
+      background: #ffffff; 
+      border-radius: 4px; 
+      border: 1px solid #E1E4E8; 
+      padding: 20px; 
+      margin-bottom: 20px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02); 
+    }
+    h3 { 
+      color: var(--akamai-blue); 
+      margin-top: 0; 
+      border-bottom: 2px solid #F0F2F5; 
+      padding-bottom: 8px; 
+    }
+    
+    /* FORM & GRID LAYOUTS */
+    .grid-row { 
+      display: flex; 
+      gap: 15px; 
+      margin-bottom: 15px; 
+    }
+    .field-group { 
+      flex: 1; 
+    }
+    label { 
+      display: block; 
+      font-weight: 600; 
+      margin-bottom: 5px; 
+      font-size: 13px; 
+    }
+    input[type="text"] { 
+      width: 100%; 
+      padding: 8px; 
+      border: 1px solid #CCD1D9; 
+      border-radius: 4px; 
+      box-sizing: border-box; 
+      font-size: 13px; 
+    }
+    
+    /* BUTTONS & ACTIONS */
+    button { 
+      background-color: var(--akamai-blue); 
+      color: #ffffff; 
+      border: none; 
+      padding: 10px 18px; 
+      font-size: 13px; 
+      font-weight: 600; 
+      border-radius: 4px; 
+      cursor: pointer; 
+    }
+    button:hover { 
+      background-color: #003661; 
+    }
+    button:disabled { 
+      background-color: #AAB2BD; 
+      cursor: not-allowed; 
+    }
+    .btn-import { 
+      background-color: var(--akamai-orange); 
+      margin-top: 15px; 
+    }
+    .btn-import:hover { 
+      background-color: #D96700; 
+    }
+    
+    /* MATRIX TABS NAVIGATION */
+    .tabs-container { 
+      display: flex; 
+      border-bottom: 2px solid #CCD1D9; 
+      margin-top: 20px; 
+    }
+    .tab-btn { 
+      padding: 10px 20px; 
+      background: #E4E8F0; 
+      border: none; 
+      cursor: pointer; 
+      font-weight: 600; 
+      border-radius: 4px 4px 0 0; 
+      margin-right: 4px; 
+      color: var(--akamai-black); 
+    }
+    .tab-btn.active { 
+      background: var(--akamai-blue); 
+      color: #ffffff; 
+    }
+    .tab-content { 
+      display: none; 
+      background: #ffffff; 
+      border: 1px solid #CCD1D9; 
+      border-top: none; 
+      padding: 15px; 
+      overflow-x: auto; 
+    }
+    .tab-content.active { 
+      display: block; 
+    }
+    
+    /* INTERACTIVE MATRIX TABLE */
+    table.matrix-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 10px; 
+    }
+    table.matrix-table th { 
+      background: #F5F7FA; 
+      padding: 10px; 
+      border: 1px solid #E1E4E8; 
+      font-size: 13px; 
+      text-align: left; 
+    }
+    table.matrix-table td { 
+      border: 1px solid #E1E4E8; 
+      padding: 4px; 
+    }
+    table.matrix-table td input { 
+      border: none; 
+      width: 100%; 
+      padding: 6px; 
+      box-sizing: border-box; 
+      font-size: 13px; 
+    }
+    table.matrix-table td input:focus { 
+      outline: 2px solid var(--akamai-blue); 
+      background: #F0F7FF; 
+    }
+    
+    /* STATUS BANNER */
+    .status-banner { 
+      padding: 10px; 
+      border-radius: 4px; 
+      margin-top: 15px; 
+      font-weight: 600; 
+      font-size: 13px; 
+      display: none; 
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================================================================= -->
+  <!-- SECTION: BRAND BAR HEADER                                         -->
+  <!-- ================================================================= -->
+  <div class="brand-bar">
+    <div class="brand-logo">Casper CSP Migration Tool</div>
+    <div id="runDisplay" style="font-size: 13px;">Run #: -</div>
+  </div>
+
+  <div class="main-workspace">
+    
+    <!-- =============================================================== -->
+    <!-- SECTION: INPUT FORM CONFIGURATIONS                              -->
+    <!-- =============================================================== -->
+    <div class="content-card">
+      <h3>1. Migration Inputs</h3>
+      <div class="grid-row">
+        <div class="field-group">
+          <label for="accountId">Account ID</label>
+          <input type="text" id="accountId" placeholder="e.g. ACT-90812">
+        </div>
+        <div class="field-group">
+          <label for="mapperUrl">Mapper Google Sheets URL</label>
+          <input type="text" id="mapperUrl" placeholder="https://docs.google.com/spreadsheets/d/MAPPER_ID/edit">
+        </div>
+      </div>
+      <div class="grid-row">
+        <div class="field-group">
+          <label for="originUrl">Origin Google Sheets URL</label>
+          <input type="text" id="originUrl" placeholder="https://docs.google.com/spreadsheets/d/ORIGIN_ID/edit">
+        </div>
+        <div class="field-group">
+          <label for="destUrl">Destination Google Sheets URL</label>
+          <input type="text" id="destUrl" placeholder="https://docs.google.com/spreadsheets/d/DESTINATION_ID/edit">
+        </div>
+      </div>
+      <button id="btnLoad" onclick="fetchMatrix()">Load Data Matrix</button>
+      <div id="statusBanner" class="status-banner"></div>
+    </div>
+
+    <!-- =============================================================== -->
+    <!-- SECTION: DATA MATRIX STAGING & TAB REVIEW                       -->
+    <!-- =============================================================== -->
+    <div id="matrixSection" class="content-card" style="display:none;">
+      <h3>2. Review & Edit Staged Data Matrix</h3>
+      
+      <!-- TAB NAVIGATION HEADERS -->
+      <div class="tabs-container">
+        <button class="tab-btn active" onclick="switchTab('Objectives')">Objectives</button>
+        <button class="tab-btn" onclick="switchTab('Key Results')">Key Results</button>
+        <button class="tab-btn" onclick="switchTab('Work Streams')">Work Streams</button>
+      </div>
+
+      <!-- TAB CONTENT CONTAINERS -->
+      <div id="tab-Objectives" class="tab-content active"></div>
+      <div id="tab-Key Results" class="tab-content"></div>
+      <div id="tab-Work Streams" class="tab-content"></div>
+
+      <!-- IMPORT BUTTON -->
+      <button id="btnImport" class="btn-import" onclick="executeImport()">Import Matrix to Destination</button>
+    </div>
+
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- SECTION: FRONTEND JAVASCRIPT & APPS SCRIPT HANDLERS               -->
+  <!-- ================================================================= -->
+  <script>
+    // GLOBAL STATE VARIABLES
+    let currentMatrixData = {};
+    let activeRunNumber = "RUN-" + Math.floor(100000 + Math.random() * 900000);
+
+    // Initialize Run ID display
+    document.getElementById('runDisplay').innerText = "Private " + activeRunNumber;
+
+    // --- FUNCTION: FETCH AND STAGE DATA MATRIX ---
+    function fetchMatrix() {
+      const payload = {
+        accountId: document.getElementById('accountId').value.trim(),
+        mapperUrl: document.getElementById('mapperUrl').value.trim(),
+        originUrl: document.getElementById('originUrl').value.trim()
+      };
+
+      if (!payload.accountId || !payload.mapperUrl || !payload.originUrl) {
+        showStatus("Please complete Account ID, Mapper URL, and Origin URL fields.", "#F8D7DA", "#721C24");
+        return;
+      }
+
+      const btn = document.getElementById('btnLoad');
+      btn.disabled = true;
+      btn.innerText = "Extracting Matrix Data...";
+      showStatus("Building matrix from source data...", "#CCE5FF", "#004085");
+
+      google.script.run
+        .withSuccessHandler(function(matrix) {
+          btn.disabled = false;
+          btn.innerText = "Reload Data Matrix";
+          currentMatrixData = matrix;
+          renderMatrixUI();
+          document.getElementById('matrixSection').style.display = 'block';
+          showStatus("Matrix loaded successfully! Review or edit values below.", "#D4EDDA", "#155724");
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.innerText = "Load Data Matrix";
+          showStatus("Error: " + err.message, "#F8D7DA", "#721C24");
+        })
+        .loadDataMatrix(payload);
+    }
+
+    // --- FUNCTION: RENDER TABLES INTO THE 3 TABS ---
+    function renderMatrixUI() {
+      ["Objectives", "Key Results", "Work Streams"].forEach(tabKey => {
+        const container = document.getElementById("tab-" + tabKey);
+        container.innerHTML = "";
+
+        const tabData = currentMatrixData[tabKey];
+        if (!tabData || !tabData.headers || tabData.headers.length === 0) {
+          container.innerHTML = "<p style='color:#656D78;'>No mapping defined for " + tabKey + "</p>";
+          return;
+        }
+
+        let html = "<table class='matrix-table'><thead><tr>";
+        tabData.headers.forEach(h => html += "<th>" + h + "</th>");
+        html += "</tr></thead><tbody>";
+
+        tabData.rows.forEach((row, rIdx) => {
+          html += "<tr>";
+          row.forEach((cell, cIdx) => {
+            html += `<td><input type="text" value="${cell.value}" onchange="updateMatrixCell('${tabKey}', ${rIdx}, ${cIdx}, this.value)"></td>`;
+          });
+          html += "</tr>";
+        });
+
+        html += "</tbody></table>";
+        container.innerHTML = html;
+      });
+    }
+
+    // --- FUNCTION: CAPTURE EDITABLE CELL CHANGES IN MEMORY ---
+    function updateMatrixCell(tabKey, rIdx, cIdx, val) {
+      if (currentMatrixData[tabKey] && currentMatrixData[tabKey].rows[rIdx][cIdx]) {
+        currentMatrixData[tabKey].rows[rIdx][cIdx].value = val;
+      }
+    }
+
+    // --- FUNCTION: TAB SWITCHING HANDLER ---
+    function switchTab(tabKey) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById("tab-" + tabKey).classList.add('active');
+    }
+
+    // --- FUNCTION: EXECUTE IMPORT TO DESTINATION SHEET ---
+    function executeImport() {
+      const destUrl = document.getElementById('destUrl').value.trim();
+      const mapperUrl = document.getElementById('mapperUrl').value.trim();
+
+      if (!destUrl) {
+        showStatus("Please specify the Destination Google Sheets URL.", "#F8D7DA", "#721C24");
+        return;
+      }
+
+      const btn = document.getElementById('btnImport');
+      btn.disabled = true;
+      btn.innerText = "Importing...";
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btn.disabled = false;
+          btn.innerText = "Import Matrix to Destination";
+          showStatus(res.message, "#D4EDDA", "#155724");
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.innerText = "Import Matrix to Destination";
+          showStatus("Import Error: " + err.message, "#F8D7DA", "#721C24");
+        })
+        .importMatrixToDestination({
+          destUrl: destUrl,
+          mapperUrl: mapperUrl,
+          matrixData: currentMatrixData,
+          runNumber: activeRunNumber
+        });
+    }
+
+    // --- FUNCTION: DISPLAY STATUS MESSAGES ---
+    function showStatus(text, bgColor, textColor) {
+      const banner = document.getElementById('statusBanner');
+      banner.style.display = 'block';
+      banner.style.backgroundColor = bgColor;
+      banner.style.color = textColor;
+      banner.innerText = text;
+    }
+  </script>
+</body>
+</html>
