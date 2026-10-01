@@ -260,7 +260,7 @@
       const btn = document.getElementById('btnLoad');
       btn.disabled = true;
       btn.innerText = "Extracting Matrix Data...";
-      showStatus("Building matrix from source data...", "#CCE5FF", "#004085");
+      showStatus("Connecting to system mapper and source sheet...", "#CCE5FF", "#004085");
 
       google.script.run
         .withSuccessHandler(function(matrix) {
@@ -269,7 +269,7 @@
           currentMatrixData = matrix;
           renderMatrixUI();
           document.getElementById('matrixSection').style.display = 'block';
-          showStatus("Matrix loaded successfully! Review or edit values below.", "#D4EDDA", "#155724");
+          showStatus("Matrix built successfully. Review or edit values below.", "#D4EDDA", "#155724");
         })
         .withFailureHandler(function(err) {
           btn.disabled = false;

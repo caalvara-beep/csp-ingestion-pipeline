@@ -32,6 +32,7 @@ function loadDataMatrix(payload) {
     throw new Error("v2.0.0 Error: Mapper URL is not configured in system settings.");
   }
 
+  console.log("loadDataMatrix start: opening origin and mapper sheets.");
   const originSpreadsheet = SpreadsheetApp.openByUrl(originUrl);
   const mapperSpreadsheet = SpreadsheetApp.openByUrl(SYSTEM_SETTINGS.mapperUrl);
   const mapperSheet = mapperSpreadsheet.getSheetByName("Mapper") || mapperSpreadsheet.getActiveSheet();
@@ -40,13 +41,14 @@ function loadDataMatrix(payload) {
     throw new Error("v2.0.0 Error: 'Mapper' sheet tab was not found.");
   }
 
-  // Pre-cache origin sheets in memory
+  console.log("loadDataMatrix: reading all sheets from origin workbook.");
   const originSheetsCache = {};
   originSpreadsheet.getSheets().forEach(sheet => {
     originSheetsCache[sheet.getName().trim().toLowerCase()] = sheet.getDataRange().getValues();
   });
 
   const mapperData = mapperSheet.getDataRange().getValues();
+  console.log("loadDataMatrix: mapper rows loaded = " + mapperData.length);
   mapperData.shift(); // Remove header row
 
   // Target 3 tabs strictly
