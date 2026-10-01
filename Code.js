@@ -41,10 +41,14 @@ function loadDataMatrix(payload) {
     throw new Error("v2.0.0 Error: 'Mapper' sheet tab was not found.");
   }
 
-  console.log("loadDataMatrix: reading all sheets from origin workbook.");
+  const originSheets = originSpreadsheet.getSheets();
+  console.log("loadDataMatrix: origin workbook has " + originSheets.length + " sheets.");
   const originSheetsCache = {};
-  originSpreadsheet.getSheets().forEach(sheet => {
-    originSheetsCache[sheet.getName().trim().toLowerCase()] = sheet.getDataRange().getValues();
+  originSheets.forEach(sheet => {
+    const sheetName = sheet.getName().trim();
+    const sheetRows = sheet.getDataRange().getValues();
+    originSheetsCache[sheetName.toLowerCase()] = sheetRows;
+    console.log("loadDataMatrix: cached sheet '" + sheetName + "' with " + sheetRows.length + " rows.");
   });
 
   const mapperData = mapperSheet.getDataRange().getValues();
@@ -94,6 +98,7 @@ function loadDataMatrix(payload) {
   for (const tabName of ["Objectives", "Key Results", "Work Streams"]) {
     const rules = destGroupedMappings[tabName];
     if (!rules || rules.length === 0) {
+      console.log("loadDataMatrix: no mapping rules found for tab '" + tabName + "'.");
       matrixResult[tabName] = { headers: [], rows: [] };
       continue;
     }
@@ -111,6 +116,7 @@ function loadDataMatrix(payload) {
     }
 
     const totalRows = primaryRule && sourceMatrix.length > 1 ? sourceMatrix.length - 1 : 1;
+    console.log("loadDataMatrix: processing tab '" + tabName + "' with " + rules.length + " rules and " + totalRows + " source rows.");
     const tabRows = [];
 
     for (let r = 1; r <= totalRows; r++) {

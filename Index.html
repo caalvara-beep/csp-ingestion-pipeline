@@ -260,7 +260,7 @@
       const btn = document.getElementById('btnLoad');
       btn.disabled = true;
       btn.innerText = "Extracting Matrix Data...";
-      showStatus("Connecting to system mapper and source sheet...", "#CCE5FF", "#004085");
+      showStatus("Reading mapper rules and source sheet data...", "#CCE5FF", "#004085");
 
       google.script.run
         .withSuccessHandler(function(matrix) {
