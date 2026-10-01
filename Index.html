@@ -269,12 +269,17 @@
       google.script.run
         .withSuccessHandler(function(matrix) {
           console.log("Client callback received from loadDataMatrix", matrix);
-          btn.disabled = false;
-          btn.innerText = "Reload Data Matrix";
-          currentMatrixData = matrix;
-          renderMatrixUI();
-          document.getElementById('matrixSection').style.display = 'block';
-          showStatus("Matrix built successfully. Review or edit values below.", "#D4EDDA", "#155724");
+          try {
+            btn.disabled = false;
+            btn.innerText = "Reload Data Matrix";
+            currentMatrixData = matrix || {};
+            renderMatrixUI();
+            document.getElementById('matrixSection').style.display = 'block';
+            showStatus("Matrix built successfully. Review or edit values below.", "#D4EDDA", "#155724");
+          } catch (err) {
+            console.error("renderMatrixUI failed", err);
+            showStatus("Matrix loaded but UI render failed: " + err.message, "#F8D7DA", "#721C24");
+          }
         })
         .withFailureHandler(function(err) {
           console.log("Client callback failed from loadDataMatrix", err);
