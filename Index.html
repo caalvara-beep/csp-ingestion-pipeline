@@ -268,6 +268,7 @@
 
       google.script.run
         .withSuccessHandler(function(matrix) {
+          console.log("Client callback received from loadDataMatrix", matrix);
           btn.disabled = false;
           btn.innerText = "Reload Data Matrix";
           currentMatrixData = matrix;
@@ -276,6 +277,7 @@
           showStatus("Matrix built successfully. Review or edit values below.", "#D4EDDA", "#155724");
         })
         .withFailureHandler(function(err) {
+          console.log("Client callback failed from loadDataMatrix", err);
           btn.disabled = false;
           btn.innerText = "Load Data Matrix";
           showStatus("Error: " + err.message, "#F8D7DA", "#721C24");
