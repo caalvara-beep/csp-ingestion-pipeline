@@ -3,6 +3,8 @@
  * VERSION: 2.0.0
  */
 
+const APP_VERSION = "2.0.1";
+
 const SYSTEM_SETTINGS = {
   mapperUrl: "https://docs.google.com/spreadsheets/d/1wVd0ETR-kRlnFcBrwLBw229qJ1gYZ3y3leGbnj3cn24/edit?gid=0#gid=0",
   destinationUrl: "https://docs.google.com/spreadsheets/d/1wycfLNwduWrGLjfzjng701beyVk3YIzVCdl38rMc_v0/edit?gid=363370443#gid=363370443"

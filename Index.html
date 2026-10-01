@@ -185,7 +185,10 @@
   <!-- SECTION: BRAND BAR HEADER                                         -->
   <!-- ================================================================= -->
   <div class="brand-bar">
-    <div class="brand-logo">Casper CSP Migration Tool</div>
+    <div>
+      <div class="brand-logo">Casper CSP Migration Tool</div>
+      <div style="font-size: 11px; opacity: 0.85; margin-top: 4px;">UI v2.0.1</div>
+    </div>
     <div id="runDisplay" style="font-size: 13px;">Run #: -</div>
   </div>
 
@@ -239,11 +242,12 @@
   <!-- ================================================================= -->
   <script>
     // GLOBAL STATE VARIABLES
+    const UI_VERSION = "2.0.1";
     let currentMatrixData = {};
     let activeRunNumber = "RUN-" + Math.floor(100000 + Math.random() * 900000);
 
     // Initialize Run ID display
-    document.getElementById('runDisplay').innerText = "Private " + activeRunNumber;
+    document.getElementById('runDisplay').innerText = "Private " + activeRunNumber + " • UI " + UI_VERSION;
 
     // --- FUNCTION: FETCH AND STAGE DATA MATRIX ---
     function fetchMatrix() {
