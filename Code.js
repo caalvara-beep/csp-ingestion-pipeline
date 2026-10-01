@@ -126,6 +126,10 @@ function loadDataMatrix(payload) {
     const tabRows = [];
 
     for (let r = 1; r <= totalRows; r++) {
+      if (r % 100 === 0 || r === totalRows) {
+        console.log("loadDataMatrix: tab '" + tabName + "' row " + r + " of " + totalRows + " generated.");
+      }
+
       const rowCells = [];
 
       rules.forEach(rule => {
