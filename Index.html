@@ -224,12 +224,14 @@
         <button class="tab-btn active" onclick="switchTab('Objectives')">Objectives</button>
         <button class="tab-btn" onclick="switchTab('Key Results')">Key Results</button>
         <button class="tab-btn" onclick="switchTab('Work Streams')">Work Streams</button>
+        <button class="tab-btn" onclick="switchTab('WorkStreams Key Results')">WorkStreams Key Results</button>
       </div>
 
       <!-- TAB CONTENT CONTAINERS -->
       <div id="tab-Objectives" class="tab-content active"></div>
       <div id="tab-Key Results" class="tab-content"></div>
       <div id="tab-Work Streams" class="tab-content"></div>
+      <div id="tab-WorkStreams Key Results" class="tab-content"></div>
 
       <!-- IMPORT BUTTON -->
       <button id="btnImport" class="btn-import" onclick="executeImport()">Import Matrix to Destination</button>
@@ -292,8 +294,11 @@
 
     // --- FUNCTION: RENDER TABLES INTO THE 3 TABS ---
     function renderMatrixUI() {
-      ["Objectives", "Key Results", "Work Streams"].forEach(tabKey => {
+      ["Objectives", "Key Results", "Work Streams", "WorkStreams Key Results"].forEach(tabKey => {
         const container = document.getElementById("tab-" + tabKey);
+        if (!container) {
+          return;
+        }
         container.innerHTML = "";
 
         const tabData = currentMatrixData[tabKey];

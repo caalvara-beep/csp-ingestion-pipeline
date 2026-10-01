@@ -159,6 +159,9 @@ function loadDataMatrix(payload) {
     matrixResult[tabName] = { headers: headers.map(h => normalizeMatrixValue(h)), rows: tabRows };
   }
 
+  const workstreamKeyResultsMatrix = buildWorkstreamKeyResultsMatrix(originSheetsCache, matrixResult, accountId);
+  matrixResult["WorkStreams Key Results"] = workstreamKeyResultsMatrix;
+
   console.log("loadDataMatrix: returning matrix payload with tabs", Object.keys(matrixResult));
   return normalizeMatrixResult(matrixResult);
 }
@@ -186,6 +189,140 @@ function generateSmartValue(tabName, accountId, existingSet) {
 
   existingSet.add(formattedId);
   return formattedId;
+}
+
+function buildWorkstreamKeyResultsMatrix(originSheetsCache, matrixResult, accountId) {
+  const workstreamRows = matrixResult["Work Streams"] && matrixResult["Work Streams"].rows ? matrixResult["Work Streams"].rows : [];
+  const keyResultRows = matrixResult["Key Results"] && matrixResult["Key Results"].rows ? matrixResult["Key Results"].rows : [];
+
+  const workstreamHeaders = matrixResult["Work Streams"] && matrixResult["Work Streams"].headers ? matrixResult["Work Streams"].headers : [];
+  const keyResultHeaders = matrixResult["Key Results"] && matrixResult["Key Results"].headers ? matrixResult["Key Results"].headers : [];
+
+  const workstreamNameIndex = findHeaderIndex(workstreamHeaders, ["workstream", "work stream", "workstream name", "name"]);
+  const workstreamIdIndex = findHeaderIndex(workstreamHeaders, ["id"]);
+  const keyResultNameIndex = findHeaderIndex(keyResultHeaders, ["key result", "key result name", "name", "title"]);
+  const keyResultIdIndex = findHeaderIndex(keyResultHeaders, ["id"]);
+
+  const workstreamLookup = {};
+  workstreamRows.forEach(row => {
+    const wsName = row[workstreamNameIndex] && row[workstreamNameIndex].value ? String(row[workstreamNameIndex].value).trim() : "";
+    const wsId = row[workstreamIdIndex] && row[workstreamIdIndex].value ? String(row[workstreamIdIndex].value).trim() : "";
+    if (wsName && wsId) {
+      workstreamLookup[normalizeKeyLookupValue(wsName)] = wsId;
+    }
+  });
+
+  const keyResultLookup = {};
+  keyResultRows.forEach(row => {
+    const krName = row[keyResultNameIndex] && row[keyResultNameIndex].value ? String(row[keyResultNameIndex].value).trim() : "";
+    const krId = row[keyResultIdIndex] && row[keyResultIdIndex].value ? String(row[keyResultIdIndex].value).trim() : "";
+    if (krName && krId) {
+      keyResultLookup[normalizeKeyLookupValue(krName)] = krId;
+    }
+  });
+
+  const relationRows = [];
+  const seenRelations = new Set();
+  const generatedRelationIds = new Set();
+  const sourceSheetCandidates = ["roadmap-workstreams", "workstreams", "work stream", "workstreams key results"]; 
+
+  sourceSheetCandidates.forEach(sheetName => {
+    const sourceRows = originSheetsCache[sheetName];
+    if (!sourceRows || sourceRows.length === 0) return;
+
+    const headerRow = sourceRows[0] || [];
+    const workstreamSourceIndex = findHeaderIndexFromRow(headerRow, ["workstream", "work stream", "workstream name"]);
+    const keyResultSourceIndexes = [8, 9].filter(index => index <= headerRow.length);
+
+    for (let i = 1; i < sourceRows.length; i++) {
+      const row = sourceRows[i] || [];
+      const workstreamName = workstreamSourceIndex >= 0 ? String(row[workstreamSourceIndex] || "").trim() : "";
+      if (!workstreamName) continue;
+
+      const wsId = workstreamLookup[normalizeKeyLookupValue(workstreamName)];
+      if (!wsId) continue;
+
+      keyResultSourceIndexes.forEach(colIndex => {
+        const rawValue = row[colIndex - 1];
+        const values = splitMultiValue(rawValue);
+        values.forEach(value => {
+          const keyResultId = keyResultLookup[normalizeKeyLookupValue(value)];
+          if (!keyResultId) return;
+
+          const relationKey = `${wsId}|${keyResultId}`;
+          if (seenRelations.has(relationKey)) return;
+
+          seenRelations.add(relationKey);
+          const relationId = generateRelationId(accountId, generatedRelationIds);
+          relationRows.push([
+            relationId,
+            wsId,
+            keyResultId,
+            Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss'Z'")
+          ]);
+        });
+      });
+    }
+  });
+
+  return {
+    headers: ["Id", "WorkStream", "Key Results", "Created"],
+    rows: relationRows
+  };
+}
+
+function generateRelationId(accountId, generatedRelationIds) {
+  const safeAccountId = String(accountId || '').trim();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  let candidate = '';
+
+  do {
+    suffix = '';
+    for (let i = 0; i < 6; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    candidate = `${safeAccountId}-wskr-${suffix}`;
+  } while (generatedRelationIds.has(candidate));
+
+  generatedRelationIds.add(candidate);
+  return candidate;
+}
+
+function findHeaderIndex(headers, patterns) {
+  for (let i = 0; i < headers.length; i++) {
+    const headerValue = normalizeKeyLookupValue(String(headers[i] || ''));
+    if (!headerValue) continue;
+    if (patterns.some(pattern => headerValue.includes(pattern))) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function findHeaderIndexFromRow(row, patterns) {
+  for (let i = 0; i < row.length; i++) {
+    const cellValue = normalizeKeyLookupValue(String(row[i] || ''));
+    if (!cellValue) continue;
+    if (patterns.some(pattern => cellValue.includes(pattern))) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function normalizeKeyLookupValue(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function splitMultiValue(value) {
+  if (value === undefined || value === null || value === '') return [];
+  const text = String(value).trim();
+  if (!text) return [];
+  return text
+    .split(/[\n,;|]+/)
+    .map(item => item.trim())
+    .filter(item => item !== '');
 }
 
 // =================================================================
