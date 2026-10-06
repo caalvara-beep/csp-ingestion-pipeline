@@ -1,9 +1,9 @@
 /**
  * Casper CSP Migration Tool - Backend Engine
- * VERSION: 2.0.0
+ * VERSION: 2.0.2
  */
 
-const APP_VERSION = "2.0.1";
+const APP_VERSION = "2.0.2";
 
 const SYSTEM_SETTINGS = {
   mapperUrl: "https://docs.google.com/spreadsheets/d/1wVd0ETR-kRlnFcBrwLBw229qJ1gYZ3y3leGbnj3cn24/edit?gid=0#gid=0",
@@ -16,7 +16,7 @@ const SYSTEM_SETTINGS = {
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Casper CSP Migration Tool v2.0.0')
+    .setTitle('Casper CSP Migration Tool v' + APP_VERSION)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -27,11 +27,11 @@ function loadDataMatrix(payload) {
   const { originUrl, accountId } = payload;
 
   if (!originUrl || !accountId) {
-    throw new Error("v2.0.0 Error: Origin URL and Account ID are required.");
+    throw new Error("v" + APP_VERSION + " Error: Origin URL and Account ID are required.");
   }
 
   if (!SYSTEM_SETTINGS.mapperUrl || SYSTEM_SETTINGS.mapperUrl === "PASTE_MAPPER_SPREADSHEET_URL_HERE") {
-    throw new Error("v2.0.0 Error: Mapper URL is not configured in system settings.");
+    throw new Error("v" + APP_VERSION + " Error: Mapper URL is not configured in system settings.");
   }
 
   console.log("loadDataMatrix start: opening origin and mapper sheets.");
@@ -40,7 +40,7 @@ function loadDataMatrix(payload) {
   const mapperSheet = mapperSpreadsheet.getSheetByName("Mapper") || mapperSpreadsheet.getActiveSheet();
 
   if (!mapperSheet) {
-    throw new Error("v2.0.0 Error: 'Mapper' sheet tab was not found.");
+    throw new Error("v" + APP_VERSION + " Error: 'Mapper' sheet tab was not found.");
   }
 
   const originSheets = originSpreadsheet.getSheets();
@@ -194,81 +194,74 @@ function generateSmartValue(tabName, accountId, existingSet) {
 function buildWorkstreamKeyResultsMatrix(originSheetsCache, matrixResult, accountId) {
   const workstreamRows = matrixResult["Work Streams"] && matrixResult["Work Streams"].rows ? matrixResult["Work Streams"].rows : [];
   const keyResultRows = matrixResult["Key Results"] && matrixResult["Key Results"].rows ? matrixResult["Key Results"].rows : [];
-
-  const workstreamHeaders = matrixResult["Work Streams"] && matrixResult["Work Streams"].headers ? matrixResult["Work Streams"].headers : [];
-  const keyResultHeaders = matrixResult["Key Results"] && matrixResult["Key Results"].headers ? matrixResult["Key Results"].headers : [];
-
-  const workstreamNameIndex = findHeaderIndex(workstreamHeaders, ["workstream", "work stream", "workstream name", "name"]);
-  const workstreamIdIndex = findHeaderIndex(workstreamHeaders, ["id"]);
-  const keyResultNameIndex = findHeaderIndex(keyResultHeaders, ["key result", "key result name", "name", "title"]);
-  const keyResultIdIndex = findHeaderIndex(keyResultHeaders, ["id"]);
-
-  const workstreamLookup = {};
-  workstreamRows.forEach(row => {
-    const wsName = row[workstreamNameIndex] && row[workstreamNameIndex].value ? String(row[workstreamNameIndex].value).trim() : "";
-    const wsId = row[workstreamIdIndex] && row[workstreamIdIndex].value ? String(row[workstreamIdIndex].value).trim() : "";
-    if (wsName && wsId) {
-      workstreamLookup[normalizeKeyLookupValue(wsName)] = wsId;
-    }
-  });
-
+  const roadmapRows = originSheetsCache["roadmap-workstreams"] || [];
+  const sourceKeyResultRows = originSheetsCache["krs"] || [];
   const keyResultLookup = {};
-  keyResultRows.forEach(row => {
-    const krName = row[keyResultNameIndex] && row[keyResultNameIndex].value ? String(row[keyResultNameIndex].value).trim() : "";
-    const krId = row[keyResultIdIndex] && row[keyResultIdIndex].value ? String(row[keyResultIdIndex].value).trim() : "";
-    if (krName && krId) {
-      keyResultLookup[normalizeKeyLookupValue(krName)] = krId;
+
+  for (let sourceRowIndex = 1; sourceRowIndex < sourceKeyResultRows.length; sourceRowIndex++) {
+    const sourceValue = sourceKeyResultRows[sourceRowIndex][4];
+    const matrixRow = keyResultRows[sourceRowIndex - 1];
+    const generatedId = findGeneratedId(matrixRow, "krs");
+    if (sourceValue !== undefined && String(sourceValue).trim() && generatedId) {
+      keyResultLookup[normalizeKeyLookupValue(sourceValue)] = generatedId;
     }
-  });
+  }
 
   const relationRows = [];
   const seenRelations = new Set();
   const generatedRelationIds = new Set();
-  const sourceSheetCandidates = ["roadmap-workstreams", "workstreams", "work stream", "workstreams key results"]; 
+  let totalMatchedPairs = 0;
+  const unmatchedKeyResultSamples = new Set();
+  const keyResultSourceIndexes = [8, 9];
+  console.log("Relation builder: Roadmap rows = " + Math.max(roadmapRows.length - 1, 0) +
+    ", KRs rows = " + Math.max(sourceKeyResultRows.length - 1, 0) +
+    ", generated Work Stream rows = " + workstreamRows.length +
+    ", generated Key Result rows = " + keyResultRows.length +
+    ", KRs column E lookup size = " + Object.keys(keyResultLookup).length);
 
-  sourceSheetCandidates.forEach(sheetName => {
-    const sourceRows = originSheetsCache[sheetName];
-    if (!sourceRows || sourceRows.length === 0) return;
+  for (let sourceRowIndex = 1; sourceRowIndex < roadmapRows.length; sourceRowIndex++) {
+    const sourceRow = roadmapRows[sourceRowIndex] || [];
+    const workstreamId = findGeneratedId(workstreamRows[sourceRowIndex - 1], "ws");
+    if (!workstreamId) continue;
 
-    const headerRow = sourceRows[0] || [];
-    const workstreamSourceIndex = findHeaderIndexFromRow(headerRow, ["workstream", "work stream", "workstream name"]);
-    const keyResultSourceIndexes = [8, 9].filter(index => index <= headerRow.length);
+    keyResultSourceIndexes.forEach(columnIndex => {
+      splitMultiValue(sourceRow[columnIndex]).forEach(value => {
+        const keyResultId = keyResultLookup[normalizeKeyLookupValue(value)];
+        if (!keyResultId) {
+          if (unmatchedKeyResultSamples.size < 5) unmatchedKeyResultSamples.add(value);
+          return;
+        }
 
-    for (let i = 1; i < sourceRows.length; i++) {
-      const row = sourceRows[i] || [];
-      const workstreamName = workstreamSourceIndex >= 0 ? String(row[workstreamSourceIndex] || "").trim() : "";
-      if (!workstreamName) continue;
+        const relationKey = `${workstreamId}|${keyResultId}`;
+        if (seenRelations.has(relationKey)) return;
 
-      const wsId = workstreamLookup[normalizeKeyLookupValue(workstreamName)];
-      if (!wsId) continue;
-
-      keyResultSourceIndexes.forEach(colIndex => {
-        const rawValue = row[colIndex - 1];
-        const values = splitMultiValue(rawValue);
-        values.forEach(value => {
-          const keyResultId = keyResultLookup[normalizeKeyLookupValue(value)];
-          if (!keyResultId) return;
-
-          const relationKey = `${wsId}|${keyResultId}`;
-          if (seenRelations.has(relationKey)) return;
-
-          seenRelations.add(relationKey);
-          const relationId = generateRelationId(accountId, generatedRelationIds);
-          relationRows.push([
-            relationId,
-            wsId,
-            keyResultId,
-            Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss'Z'")
-          ]);
-        });
+        seenRelations.add(relationKey);
+        totalMatchedPairs += 1;
+        const relationId = generateRelationId(accountId, generatedRelationIds);
+        relationRows.push([
+          relationId,
+          workstreamId,
+          keyResultId,
+          Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss'Z'")
+        ].map((value, index) => ({ value: value, destCol: index + 1 })));
       });
-    }
-  });
+    });
+  }
+
+  console.log("Relation builder: total matched pairs = " + totalMatchedPairs + ", final relation rows = " + relationRows.length +
+    ", unmatched Key Result examples = " + Array.from(unmatchedKeyResultSamples).join(" | "));
 
   return {
     headers: ["Id", "WorkStream", "Key Results", "Created"],
     rows: relationRows
   };
+}
+
+function findGeneratedId(row, prefix) {
+  if (!row) return "";
+  const idPattern = new RegExp("-" + prefix + "-[A-Z0-9]{6}$", "i");
+  const idCell = row.find(cell => cell && idPattern.test(String(cell.value || "").trim()));
+  return idCell ? String(idCell.value).trim() : "";
 }
 
 function generateRelationId(accountId, generatedRelationIds) {
@@ -300,6 +293,24 @@ function findHeaderIndex(headers, patterns) {
   return -1;
 }
 
+function findNameHeaderIndex(headers, entityPatterns) {
+  const normalizedHeaders = headers.map(header => normalizeKeyLookupValue(String(header || '')));
+  const exactNameIndex = normalizedHeaders.findIndex(header => header === "name" || header.endsWith(" name"));
+  if (exactNameIndex >= 0) return exactNameIndex;
+
+  return normalizedHeaders.findIndex(header =>
+    !/(^| )id($| )/.test(header) && entityPatterns.some(pattern => header.includes(pattern))
+  );
+}
+
+function findIdHeaderIndex(headers) {
+  const normalizedHeaders = headers.map(header => normalizeKeyLookupValue(String(header || '')));
+  const exactIndex = normalizedHeaders.findIndex(header => header === "id");
+  if (exactIndex >= 0) return exactIndex;
+
+  return normalizedHeaders.findIndex(header => /(^| )id$/.test(header));
+}
+
 function findHeaderIndexFromRow(row, patterns) {
   for (let i = 0; i < row.length; i++) {
     const cellValue = normalizeKeyLookupValue(String(row[i] || ''));
@@ -325,6 +336,10 @@ function splitMultiValue(value) {
     .filter(item => item !== '');
 }
 
+function getSourceColumnIndexes(headerRow) {
+  return [9, 10].filter(columnIndex => columnIndex <= headerRow.length);
+}
+
 // =================================================================
 // SECTION 4: IMPORT MATRIX & WRITE LOGS (STAGE 2)
 // =================================================================
@@ -334,7 +349,7 @@ function importMatrixToDestination(payload) {
   const mapperUrl = SYSTEM_SETTINGS.mapperUrl;
 
   if (!destUrl || !mapperUrl || !matrixData) {
-    throw new Error("v2.0.0 Error: System destination URL, mapper URL, and matrix data are required.");
+    throw new Error("v" + APP_VERSION + " Error: System destination URL, mapper URL, and matrix data are required.");
   }
 
   const destSpreadsheet = SpreadsheetApp.openByUrl(destUrl);
