@@ -4,19 +4,45 @@
  */
 
 const APP_VERSION = "2.0.2";
+const DEPLOYMENT_ENVIRONMENT = "DEV";
 
-const SYSTEM_SETTINGS = {
-  mapperUrl: "https://docs.google.com/spreadsheets/d/1wVd0ETR-kRlnFcBrwLBw229qJ1gYZ3y3leGbnj3cn24/edit?gid=0#gid=0",
-  destinationUrl: "https://docs.google.com/spreadsheets/d/1wycfLNwduWrGLjfzjng701beyVk3YIzVCdl38rMc_v0/edit?gid=363370443#gid=363370443"
+const ENVIRONMENT_SETTINGS = {
+  DEV: {
+    mapperUrl: "https://docs.google.com/spreadsheets/d/1wVd0ETR-kRlnFcBrwLBw229qJ1gYZ3y3leGbnj3cn24/edit?gid=0#gid=0",
+    destinationUrl: "https://docs.google.com/spreadsheets/d/1wycfLNwduWrGLjfzjng701beyVk3YIzVCdl38rMc_v0/edit?gid=363370443#gid=363370443"
+  },
+  UAT: {
+    mapperUrl: "https://docs.google.com/spreadsheets/d/1FDfIAZtmO-bwhwQkmBTXfRPFfXSq3ilKSeY9kDzlGvA/edit?gid=0#gid=0",
+    destinationUrl: "https://docs.google.com/spreadsheets/d/11iZYwVdwlyC4x7kOwE4RXtfg_6Pp7dpvObrRGicfn7g/edit?gid=363370443#gid=363370443"
+  },
+  PROD: {
+    mapperUrl: "PASTE_PROD_MAPPER_URL_HERE",
+    destinationUrl: "PASTE_PROD_DESTINATION_URL_HERE"
+  }
 };
+
+function getSystemSettings() {
+  const settings = ENVIRONMENT_SETTINGS[DEPLOYMENT_ENVIRONMENT];
+  if (!settings) {
+    throw new Error("v" + APP_VERSION + " Error: Unknown deployment environment '" + DEPLOYMENT_ENVIRONMENT + "'.");
+  }
+
+  const missingSettings = Object.keys(settings).filter(key => !settings[key] || settings[key].startsWith("PASTE_"));
+  if (missingSettings.length > 0) {
+    throw new Error("v" + APP_VERSION + " Error: " + DEPLOYMENT_ENVIRONMENT + " settings are not configured: " + missingSettings.join(", ") + ".");
+  }
+
+  return settings;
+}
 
 // =================================================================
 // SECTION 1: WEB APP ENTRY POINT
 // =================================================================
 function doGet() {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Casper CSP Migration Tool v' + APP_VERSION)
+  const page = HtmlService.createTemplateFromFile('Index');
+  page.deploymentEnvironment = DEPLOYMENT_ENVIRONMENT;
+  return page.evaluate()
+    .setTitle('Casper CSP Migration Tool v' + APP_VERSION + ' (' + DEPLOYMENT_ENVIRONMENT + ')')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -30,13 +56,11 @@ function loadDataMatrix(payload) {
     throw new Error("v" + APP_VERSION + " Error: Origin URL and Account ID are required.");
   }
 
-  if (!SYSTEM_SETTINGS.mapperUrl || SYSTEM_SETTINGS.mapperUrl === "PASTE_MAPPER_SPREADSHEET_URL_HERE") {
-    throw new Error("v" + APP_VERSION + " Error: Mapper URL is not configured in system settings.");
-  }
+  const systemSettings = getSystemSettings();
 
   console.log("loadDataMatrix start: opening origin and mapper sheets.");
   const originSpreadsheet = SpreadsheetApp.openByUrl(originUrl);
-  const mapperSpreadsheet = SpreadsheetApp.openByUrl(SYSTEM_SETTINGS.mapperUrl);
+  const mapperSpreadsheet = SpreadsheetApp.openByUrl(systemSettings.mapperUrl);
   const mapperSheet = mapperSpreadsheet.getSheetByName("Mapper") || mapperSpreadsheet.getActiveSheet();
 
   if (!mapperSheet) {
@@ -345,8 +369,9 @@ function getSourceColumnIndexes(headerRow) {
 // =================================================================
 function importMatrixToDestination(payload) {
   const { matrixData, runNumber } = payload;
-  const destUrl = SYSTEM_SETTINGS.destinationUrl;
-  const mapperUrl = SYSTEM_SETTINGS.mapperUrl;
+  const systemSettings = getSystemSettings();
+  const destUrl = systemSettings.destinationUrl;
+  const mapperUrl = systemSettings.mapperUrl;
 
   if (!destUrl || !mapperUrl || !matrixData) {
     throw new Error("v" + APP_VERSION + " Error: System destination URL, mapper URL, and matrix data are required.");
