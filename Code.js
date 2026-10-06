@@ -357,15 +357,20 @@ function importMatrixToDestination(payload) {
 
   const executionLog = [];
   const timestamp = new Date().toISOString();
+  const destinationTabNames = {
+    "Work Streams": "Workstreams",
+    "WorkStreams Key Results": "Workstream Key Results"
+  };
 
   try {
     for (const tabCategory in matrixData) {
       const tabObj = matrixData[tabCategory];
       if (!tabObj || !tabObj.rows || tabObj.rows.length === 0) continue;
 
-      let destSheet = destSpreadsheet.getSheetByName(tabCategory);
+      const destinationTabName = destinationTabNames[tabCategory] || tabCategory;
+      let destSheet = destSpreadsheet.getSheetByName(destinationTabName);
       if (!destSheet) {
-        destSheet = destSpreadsheet.insertSheet(tabCategory);
+        destSheet = destSpreadsheet.insertSheet(destinationTabName);
       }
 
       const rowsToWrite = tabObj.rows.map(row => row.map(cell => cell.value));
@@ -377,7 +382,7 @@ function importMatrixToDestination(payload) {
         timestamp,
         runNumber,
         "SUCCESS",
-        `Appended ${rowsToWrite.length} rows to destination tab '${tabCategory}'.`
+        `Appended ${rowsToWrite.length} rows to destination tab '${destinationTabName}'.`
       ]);
     }
   } catch (err) {
@@ -392,7 +397,7 @@ function importMatrixToDestination(payload) {
   }
 
   writeLogsToMapper(mapperSpreadsheet, executionLog);
-  return { success: true, message: `Run #${runNumber}: Data successfully imported into Destination Sheet!` };
+  return { success: true, message: "Data successfully imported into Casper!" };
 }
 
 // =================================================================

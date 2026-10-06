@@ -72,6 +72,58 @@
       margin-bottom: 5px; 
       font-size: 13px; 
     }
+    .label-with-help {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+    .tooltip-trigger {
+      width: 17px;
+      height: 17px;
+      padding: 0;
+      border: 1px solid #65717C;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #3D4852;
+      font-size: 11px;
+      line-height: 15px;
+      text-align: center;
+      cursor: help;
+    }
+    .tooltip-trigger:hover,
+    .tooltip-trigger:focus {
+      background: #F0F7FF;
+      outline: 2px solid var(--akamai-blue);
+    }
+    .tooltip-text {
+      position: absolute;
+      z-index: 10;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      width: 280px;
+      padding: 9px 11px;
+      border-radius: 4px;
+      background: var(--akamai-black);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      visibility: hidden;
+      opacity: 0;
+      transform: translate(-50%, 4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+      pointer-events: none;
+    }
+    .tooltip-wrap:hover .tooltip-text,
+    .tooltip-trigger:focus + .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
     input[type="text"] { 
       width: 100%; 
       padding: 8px; 
@@ -156,12 +208,24 @@
       border: 1px solid #E1E4E8; 
       padding: 4px; 
     }
-    table.matrix-table td input { 
+    table.matrix-table td input[type="text"] {
       border: none; 
       width: 100%; 
       padding: 6px; 
       box-sizing: border-box; 
       font-size: 13px; 
+    }
+    .selection-column {
+      width: 48px;
+      text-align: center !important;
+    }
+    .matrix-row-checkbox,
+    .matrix-select-all {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      vertical-align: middle;
+      cursor: pointer;
     }
     table.matrix-table td input:focus { 
       outline: 2px solid var(--akamai-blue); 
@@ -198,14 +262,20 @@
     <!-- SECTION: INPUT FORM CONFIGURATIONS                              -->
     <!-- =============================================================== -->
     <div class="content-card">
-      <h3>1. Migration Inputs</h3>
+      <h3>1. Account and Customer success plan details</h3>
       <div class="grid-row">
         <div class="field-group">
           <label for="accountId">Account ID</label>
           <input type="text" id="accountId" placeholder="e.g. ACT-90812">
         </div>
         <div class="field-group">
-          <label for="originUrl">Origin Google Sheets URL</label>
+          <div class="label-with-help">
+            <label for="originUrl">Customer Success Plan URL</label>
+            <span class="tooltip-wrap">
+              <button type="button" class="tooltip-trigger" aria-label="Customer Success Plan link guidance" aria-describedby="originUrlTooltip">?</button>
+              <span class="tooltip-text" id="originUrlTooltip" role="tooltip">The file must be shared within the Akamai domain and should preferably be hosted in the designated team space. Please use the latest CSP template.</span>
+            </span>
+          </div>
           <input type="text" id="originUrl" placeholder="https://docs.google.com/spreadsheets/d/ORIGIN_ID/edit">
         </div>
       </div>
@@ -217,7 +287,7 @@
     <!-- SECTION: DATA MATRIX STAGING & TAB REVIEW                       -->
     <!-- =============================================================== -->
     <div id="matrixSection" class="content-card" style="display:none;">
-      <h3>2. Review & Edit Staged Data Matrix</h3>
+      <h3>2. Data Matrix: Review & Edit</h3>
       
       <!-- TAB NAVIGATION HEADERS -->
       <div class="tabs-container">
@@ -234,7 +304,7 @@
       <div id="tab-WorkStreams Key Results" class="tab-content"></div>
 
       <!-- IMPORT BUTTON -->
-      <button id="btnImport" class="btn-import" onclick="executeImport()">Import Matrix to Destination</button>
+      <button id="btnImport" class="btn-import" onclick="executeImport()">Import to Casper</button>
     </div>
 
   </div>
@@ -246,6 +316,7 @@
     // GLOBAL STATE VARIABLES
     const UI_VERSION = "2.0.2";
     let currentMatrixData = {};
+    let selectedMatrixRows = {};
     let activeRunNumber = "RUN-" + Math.floor(100000 + Math.random() * 900000);
 
     // Initialize Run ID display
@@ -275,6 +346,7 @@
             btn.disabled = false;
             btn.innerText = "Reload Data Matrix";
             currentMatrixData = matrix || {};
+            selectedMatrixRows = {};
             renderMatrixUI();
             document.getElementById('matrixSection').style.display = 'block';
             showStatus("Matrix built successfully. Review or edit values below.", "#D4EDDA", "#155724");
@@ -307,12 +379,16 @@
           return;
         }
 
+        const rows = tabData.rows || [];
+        selectedMatrixRows[tabKey] = rows.map(() => true);
+
         let html = "<table class='matrix-table'><thead><tr>";
+        html += `<th class="selection-column"><input type="checkbox" class="matrix-select-all" aria-label="Select all rows in ${tabKey}" checked onchange="toggleAllMatrixRows('${tabKey}', this.checked)"></th>`;
         tabData.headers.forEach(h => html += "<th>" + h + "</th>");
         html += "</tr></thead><tbody>";
 
-        tabData.rows.forEach((row, rIdx) => {
-          html += "<tr>";
+        rows.forEach((row, rIdx) => {
+          html += `<tr><td class="selection-column"><input type="checkbox" class="matrix-row-checkbox" aria-label="Select row ${rIdx + 1} in ${tabKey}" checked onchange="updateMatrixRowSelection('${tabKey}', ${rIdx}, this.checked)"></td>`;
           row.forEach((cell, cIdx) => {
             html += `<td><input type="text" value="${cell.value}" onchange="updateMatrixCell('${tabKey}', ${rIdx}, ${cIdx}, this.value)"></td>`;
           });
@@ -322,6 +398,37 @@
         html += "</tbody></table>";
         container.innerHTML = html;
       });
+    }
+
+    function updateMatrixRowSelection(tabKey, rowIndex, isSelected) {
+      if (!selectedMatrixRows[tabKey]) return;
+      selectedMatrixRows[tabKey][rowIndex] = isSelected;
+      syncMatrixSelectAll(tabKey);
+    }
+
+    function toggleAllMatrixRows(tabKey, isSelected) {
+      const tabData = currentMatrixData[tabKey];
+      if (!tabData || !tabData.rows) return;
+
+      selectedMatrixRows[tabKey] = tabData.rows.map(() => isSelected);
+      const container = document.getElementById("tab-" + tabKey);
+      container.querySelectorAll(".matrix-row-checkbox").forEach(checkbox => {
+        checkbox.checked = isSelected;
+      });
+
+      const selectAll = container.querySelector(".matrix-select-all");
+      if (selectAll) selectAll.indeterminate = false;
+    }
+
+    function syncMatrixSelectAll(tabKey) {
+      const selectedRows = selectedMatrixRows[tabKey] || [];
+      const container = document.getElementById("tab-" + tabKey);
+      const selectAll = container ? container.querySelector(".matrix-select-all") : null;
+      if (!selectAll) return;
+
+      const selectedCount = selectedRows.filter(Boolean).length;
+      selectAll.checked = selectedCount === selectedRows.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < selectedRows.length;
     }
 
     // --- FUNCTION: CAPTURE EDITABLE CELL CHANGES IN MEMORY ---
@@ -342,6 +449,22 @@
 
     // --- FUNCTION: EXECUTE IMPORT TO DESTINATION SHEET ---
     function executeImport() {
+      const selectedMatrixData = {};
+      let selectedRowCount = 0;
+
+      Object.keys(currentMatrixData).forEach(tabKey => {
+        const tabData = currentMatrixData[tabKey];
+        const selections = selectedMatrixRows[tabKey] || (tabData.rows || []).map(() => true);
+        const selectedRows = (tabData.rows || []).filter((row, index) => selections[index]);
+        selectedRowCount += selectedRows.length;
+        selectedMatrixData[tabKey] = Object.assign({}, tabData, { rows: selectedRows });
+      });
+
+      if (selectedRowCount === 0) {
+        showStatus("Select at least one row to import.", "#F8D7DA", "#721C24");
+        return;
+      }
+
       const btn = document.getElementById('btnImport');
       btn.disabled = true;
       btn.innerText = "Importing...";
@@ -349,16 +472,16 @@
       google.script.run
         .withSuccessHandler(function(res) {
           btn.disabled = false;
-          btn.innerText = "Import Matrix to Destination";
+          btn.innerText = "Import to Casper";
           showStatus(res.message, "#D4EDDA", "#155724");
         })
         .withFailureHandler(function(err) {
           btn.disabled = false;
-          btn.innerText = "Import Matrix to Destination";
+          btn.innerText = "Import to Casper";
           showStatus("Import Error: " + err.message, "#F8D7DA", "#721C24");
         })
         .importMatrixToDestination({
-          matrixData: currentMatrixData,
+          matrixData: selectedMatrixData,
           runNumber: activeRunNumber
         });
     }
