@@ -1,9 +1,9 @@
 /**
  * Casper CSP Migration Tool - Backend Engine
- * VERSION: 2.0.2
+ * VERSION: 2.0.3
  */
 
-const APP_VERSION = "2.0.2";
+const APP_VERSION = "2.0.3";
 const DEPLOYMENT_ENVIRONMENT = "DEV";
 
 const ENVIRONMENT_SETTINGS = {
@@ -11,7 +11,7 @@ const ENVIRONMENT_SETTINGS = {
     mapperUrl: "https://docs.google.com/spreadsheets/d/1wVd0ETR-kRlnFcBrwLBw229qJ1gYZ3y3leGbnj3cn24/edit?gid=0#gid=0",
     destinationUrl: "https://docs.google.com/spreadsheets/d/1wycfLNwduWrGLjfzjng701beyVk3YIzVCdl38rMc_v0/edit?gid=363370443#gid=363370443"
   },
-  UAT: {
+  STAGING: {
     mapperUrl: "https://docs.google.com/spreadsheets/d/1FDfIAZtmO-bwhwQkmBTXfRPFfXSq3ilKSeY9kDzlGvA/edit?gid=0#gid=0",
     destinationUrl: "https://docs.google.com/spreadsheets/d/11iZYwVdwlyC4x7kOwE4RXtfg_6Pp7dpvObrRGicfn7g/edit?gid=363370443#gid=363370443"
   },
@@ -73,14 +73,11 @@ function loadDataMatrix(payload) {
   originSheets.forEach(sheet => {
     const sheetName = sheet.getName().trim();
     const rawSheetRows = sheet.getDataRange().getValues();
-    const filteredRows = rawSheetRows.filter((row, index) => {
-      if (index === 0) return true;
-      const cellBValue = row && row[1] !== undefined ? row[1] : "";
-      return String(cellBValue).trim() !== "";
-    });
+    const filteredRows = prepareOriginSheetRows(rawSheetRows, sheetName);
 
     originSheetsCache[sheetName.toLowerCase()] = filteredRows;
-    console.log("loadDataMatrix: cached sheet '" + sheetName + "' with " + filteredRows.length + " rows after removing blank column B entries.");
+    const skippedRows = sheetName.toLowerCase() === "objectives" ? 2 : 0;
+    console.log("loadDataMatrix: cached sheet '" + sheetName + "' with " + filteredRows.length + " rows after skipping " + skippedRows + " preamble row(s) and removing blank column B entries.");
   });
 
   const mapperData = mapperSheet.getDataRange().getValues();
@@ -182,6 +179,11 @@ function loadDataMatrix(payload) {
 
     matrixResult[tabName] = { headers: headers.map(h => normalizeMatrixValue(h)), rows: tabRows };
   }
+
+  const keyResultObjectiveRule = destGroupedMappings["Key Results"].find(rule =>
+    rule.originSheetName.trim().toLowerCase() === "krs" && rule.originColIndex === 2
+  );
+  replaceKeyResultObjectiveDescriptionsWithIds(matrixResult, keyResultObjectiveRule);
 
   const workstreamKeyResultsMatrix = buildWorkstreamKeyResultsMatrix(originSheetsCache, matrixResult, accountId);
   matrixResult["WorkStreams Key Results"] = workstreamKeyResultsMatrix;
@@ -288,6 +290,62 @@ function findGeneratedId(row, prefix) {
   return idCell ? String(idCell.value).trim() : "";
 }
 
+function replaceKeyResultObjectiveDescriptionsWithIds(matrixResult, keyResultObjectiveRule) {
+  const objectives = matrixResult["Objectives"];
+  const keyResults = matrixResult["Key Results"];
+  if (!objectives || !objectives.headers || !objectives.rows || !keyResults || !keyResults.rows || !keyResultObjectiveRule) {
+    console.log("Objective ID mapping: required matrix data or KRs column B mapper rule is missing.");
+    return;
+  }
+
+  const shortDescriptionColumnIndex = objectives.headers.findIndex(header => {
+    const normalizedHeader = normalizeKeyLookupValue(header);
+    return normalizedHeader === "short description" || normalizedHeader === "objective - short";
+  });
+  const objectiveIdColumnIndex = findIdHeaderIndex(objectives.headers);
+  if (shortDescriptionColumnIndex < 0 || objectiveIdColumnIndex < 0) {
+    console.log("Objective ID mapping: Objectives matrix requires 'Short Description' and 'Id' columns. Headers = " +
+      JSON.stringify(objectives.headers));
+    return;
+  }
+
+  const objectiveIdsByDescription = new Map();
+  objectives.rows.forEach(row => {
+    const descriptionCell = row[shortDescriptionColumnIndex];
+    const idCell = row[objectiveIdColumnIndex];
+    const description = descriptionCell ? String(descriptionCell.value || "").trim() : "";
+    const objectiveId = idCell && idCell.value ? String(idCell.value).trim() : "";
+    if (description && objectiveId) {
+      objectiveIdsByDescription.set(normalizeKeyLookupValue(description), objectiveId);
+    }
+  });
+
+  console.log("Objective ID mapping: lookup built from Objectives matrix Short Description column " +
+    (shortDescriptionColumnIndex + 1) + " and Id column " + (objectiveIdColumnIndex + 1) +
+    "; Key Results values sourced from '" + keyResultObjectiveRule.originFieldName +
+    "' (KRs column B), destination column " + keyResultObjectiveRule.destColIndex +
+    "; lookup entries = " + objectiveIdsByDescription.size);
+
+  let replacedCount = 0;
+  const unmatchedDescriptions = new Set();
+  keyResults.rows.forEach(row => {
+    const objectiveCell = row.find(cell => Number(cell.destCol) === keyResultObjectiveRule.destColIndex);
+    const description = objectiveCell ? String(objectiveCell.value || "").trim() : "";
+    if (!description) return;
+
+    const objectiveId = objectiveIdsByDescription.get(normalizeKeyLookupValue(description));
+    if (objectiveId) {
+      objectiveCell.value = objectiveId;
+      replacedCount += 1;
+    } else if (unmatchedDescriptions.size < 5) {
+      unmatchedDescriptions.add(description);
+    }
+  });
+
+  console.log("Objective ID mapping: replaced " + replacedCount + " Key Results references; unmatched examples = " +
+    Array.from(unmatchedDescriptions).join(" | "));
+}
+
 function generateRelationId(accountId, generatedRelationIds) {
   const safeAccountId = String(accountId || '').trim();
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -348,6 +406,15 @@ function findHeaderIndexFromRow(row, patterns) {
 
 function normalizeKeyLookupValue(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function prepareOriginSheetRows(rawRows, sheetName) {
+  const rowsToSkip = String(sheetName || '').trim().toLowerCase() === "objectives" ? 2 : 0;
+  return rawRows.slice(rowsToSkip).filter((row, index) => {
+    if (index === 0) return true;
+    const cellBValue = row && row[1] !== undefined ? row[1] : "";
+    return String(cellBValue).trim() !== "";
+  });
 }
 
 function splitMultiValue(value) {
